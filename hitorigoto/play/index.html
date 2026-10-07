@@ -9795,9 +9795,13 @@ async function saveCard(key, btn) {
   btn.textContent = '画像を保存しました';
 }
 function shareX(key, btn) {
-  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(key)) + '&url=' + encodeURIComponent(SHARE_URL);
-  const w = window.open(url, '_blank', 'noopener');
-  if (!w) { try { navigator.clipboard.writeText(shareText(key) + '\n' + SHARE_URL); btn.textContent = '文面をコピーしました'; } catch (_) { btn.textContent = '開けませんでした'; } }
+  const url = 'https://x.com/intent/post?text=' + encodeURIComponent(shareText(key)) + '&url=' + encodeURIComponent(SHARE_URL);
+  try {
+    const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (_) {
+    try { location.href = url; } catch (__) { try { navigator.clipboard.writeText(shareText(key) + '\n' + SHARE_URL); btn.textContent = '文面をコピーしました'; } catch (___) { btn.textContent = '開けませんでした'; } }
+  }
 }
 
 // エンディングの前の余韻：最後の一枚絵をモノクロで出し、ゆっくりぼかして、一行だけ置く
