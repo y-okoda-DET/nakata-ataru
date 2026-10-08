@@ -1101,6 +1101,7 @@ const STILL_PENDING = new Set([]);
 const Sound = (() => {
   let bgmBuf = null, bgmSrc = null, bgmGain = null, bgmFail = false, bgmLoading = false, hushS = false, hushI = false;
   const BGM_LEVEL = .2; // 小さめに、背景で鳴っている程度
+  const SONG_LEVEL = .07; // エンディング曲：本編BGMと同じくらいの聞こえ方（曲ファイルの音量差を補正）
   let ctx = null, master = null, bus = null, sfxBus = null, verb = null, noise = null, curTrack = null, wanted = null, unlocked = false;
   // mode: all＝BGMと効果音 / se＝効果音だけ / off＝音なし
   let mode = 'all';
@@ -1282,7 +1283,7 @@ const Sound = (() => {
     const [buf] = await Promise.all([songLoad(h), new Promise(r => setTimeout(r, Math.max(0, 2200 - hushAge())))]);
     if (songKey !== h || !ctx) return;
     if (!buf) { hush(false); return; }
-    songGain = ctx.createGain(); songGain.gain.setValueAtTime(0.0001, ctx.currentTime); songGain.gain.linearRampToValueAtTime(.85, ctx.currentTime + 1.2); songGain.connect(bus);
+    songGain = ctx.createGain(); songGain.gain.setValueAtTime(0.0001, ctx.currentTime); songGain.gain.linearRampToValueAtTime(SONG_LEVEL, ctx.currentTime + 1.2); songGain.connect(bus);
     const src = ctx.createBufferSource(); src.buffer = buf; src.connect(songGain); songSrc = src;
     src.onended = () => { if (songSrc === src) songStop(); };
     src.start(0);
