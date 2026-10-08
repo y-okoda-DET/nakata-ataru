@@ -242,6 +242,22 @@ button{font:inherit;color:inherit;cursor:pointer;}
 .t-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .t-btns[hidden]{display:none!important;}
 .t-btns .btn{height:62px;font-size:18px;}
+.t-btns .t-link{grid-column:1/-1;background:none;border:0;border-bottom:1px solid var(--ink2);color:var(--ink2);font-size:12px;letter-spacing:.06em;padding:4px 2px;min-height:32px;justify-self:center;font-family:var(--f-text);}
+.t-warn{margin:0 0 10px;padding:10px 12px;border:3px solid var(--ink);background:#f6e3c8;font-size:12.5px;line-height:1.7;color:var(--ink);}
+.t-warn[hidden],.t-confirm[hidden]{display:none!important;}
+.t-warn b{display:block;margin-bottom:2px;font-size:13px;}
+.t-confirm{margin-top:8px;padding:12px;border:3px solid var(--ink);background:var(--paper);}
+.t-confirm p{margin:0 0 10px;font-size:13px;line-height:1.75;}
+.t-confirm-b{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+#saveMgr{position:absolute;inset:0;z-index:70;background:rgba(20,20,20,.74);overflow:auto;padding:10px;box-sizing:border-box;}
+#saveMgr .sheet{margin-top:6px;}
+#saveMgr .sm-st{font-size:12.5px;line-height:1.8;margin:0 0 4px;color:var(--ink2);}
+#saveMgr .sm-st b{color:var(--ink);}
+#saveMgr .sm-st .no{color:#a33;font-weight:700;}
+#saveMgr textarea{width:100%;box-sizing:border-box;min-height:84px;border:3px solid var(--ink);background:#fff;font-family:monospace;font-size:12px;padding:8px;resize:vertical;word-break:break-all;}
+#saveMgr .sm-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
+#saveMgr .sm-row .btn{flex:1 1 auto;font-size:13px;padding:8px 10px;}
+#saveMgr .sm-msg{font-size:12.5px;line-height:1.7;min-height:1.7em;margin:4px 0 0;}
 .namef{display:grid;gap:8px;}
 .namef[hidden]{display:none!important;}
 .namef label{font-size:12px;color:var(--ink2);}
@@ -419,9 +435,15 @@ button{font:inherit;color:inherit;cursor:pointer;}
       <p class="t-catch">二〇一〇年四月、中央線沿いの街・宵町。レコード屋でバイトする大学生の一年を、一週ずつ過ごす恋愛アドベンチャー。</p>
       <p class="t-how">平日はバイトとレコード掘り、週末は誰と会うか。好きなものの話を、知ったかぶりでするか、素直に言うか。</p>
     </div>
+    <div class="t-warn" id="storeWarn" hidden></div>
     <div class="t-btns" id="titleBtns">
       <button class="btn primary" id="btnNew" type="button">はじめから</button>
       <button class="btn" id="btnCont" type="button">つづきから</button>
+      <button class="t-link" id="btnMgr" type="button">セーブの管理（コードの書き出し・読み込み）</button>
+    </div>
+    <div class="t-confirm" id="newConfirm" hidden>
+      <p id="newConfirmTx"></p>
+      <div class="t-confirm-b"><button class="btn" id="btnNewNo" type="button">やめる</button><button class="btn primary" id="btnNewYes" type="button">消してはじめから</button></div>
     </div>
     <form class="namef" id="nameForm" hidden>
       <label for="nameInput">主人公の名前（8文字まで）</label>
@@ -9531,7 +9553,7 @@ function schedule() {
         <div class="acts">${ACTIONS.filter(x => x.when === 'we' && !(x.hide && x.hide(S))).sort((a, b) => WE_ORDER.indexOf(a.id) - WE_ORDER.indexOf(b.id)).map(x => { const ok = !x.need || x.need(S); return `<button type="button" class="act ${weSel.v === x.id ? 'filled' : ''}" data-we="${x.id}" ${!ok ? 'disabled' : ''}><span class="n">${x.n}${weSel.v === x.id ? '<span class="cnt">選択中</span>' : ''}</span><span class="m">${ok ? mOf(x) : (x.offMsg ? x.offMsg(S) : '条件：' + x.needLabel)}</span></button>`; }).join('')}</div>
         <div class="foot">
           <div class="proj">いま <b>${yen(S.money)}</b> → 見込み <b>${yen(S.money + est)}</b><br>週末に食費 ${yen(8000)}${S.loan ? '・ローン返済 ' + yen(S.loan.weekly) : ''} が引かれる</div>
-          <div class="btnrow"><button type="button" class="btn small" id="btnSave">セーブ</button><button type="button" class="btn primary" id="btnGo" ${ready ? '' : 'disabled'}>この週をはじめる</button></div>
+          <div class="btnrow"><button type="button" class="btn small" id="btnSave">セーブ</button><button type="button" class="btn small" id="btnCode">コード</button><button type="button" class="btn primary" id="btnGo" ${ready ? '' : 'disabled'}>この週をはじめる</button></div>
         </div>
       </div>`);
       if (ready && !wasReady) setTimeout(() => panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' }), 60);
@@ -9539,6 +9561,7 @@ function schedule() {
       panel.querySelectorAll('[data-we]').forEach(el => el.addEventListener('click', () => { weSel.v = el.dataset.we; render(); }));
       panel.querySelectorAll('[data-rm]').forEach(el => el.addEventListener('click', () => { wd.splice(+el.dataset.rm, 1); render(); }));
       panel.querySelectorAll('[data-rmwe]').forEach(el => el.addEventListener('click', () => { weSel.v = null; render(); }));
+      $('#btnCode').addEventListener('click', () => openSaveMgr());
       $('#btnSave').addEventListener('click', () => { const b = $('#btnSave'), ok = save(); b.textContent = ok ? 'セーブしました（第' + KN(S.week) + '週）' : 'セーブできませんでした'; b.classList.add('saved'); b.disabled = true; setTimeout(() => { if (!document.body.contains(b)) return; b.textContent = 'セーブ'; b.classList.remove('saved'); b.disabled = false; }, 2200); });
       $('#btnGo').addEventListener('click', () => { closePanel(); S.tired = 0; resolve({ wd: wd.slice(), we: weSel.v }); });
     };
@@ -10654,12 +10677,118 @@ function refreshTitleBtns() {
 function backToTitle() {
   $('#title').hidden = false; $('#hud').hidden = true; $('#stage').hidden = true; $('#ctrl').hidden = true;
   clearText(); hideChar();
-  $('#nameForm').hidden = true; $('#titleBtns').hidden = false;
+  $('#nameForm').hidden = true; $('#titleBtns').hidden = false; $('#newConfirm').hidden = true; if (typeof updateStoreWarn === 'function') updateStoreWarn();
   Sound.play('title');
   refreshTitleBtns();
   Cloud.ready.then(() => { if (!$('#title').hidden) refreshTitleBtns(); });
 }
-$('#btnNew').addEventListener('click', () => { Sound.init(); Sound.play('title'); $('#titleBtns').hidden = true; $('#nameForm').hidden = false; $('#nameInput').focus(); });
+/* ---------------- セーブの保護：確認・書き出し・読み込み・警告 ---------------- */
+function lsOK() { try { const k = '__t' + Date.now(); localStorage.setItem(k, '1'); const ok = localStorage.getItem(k) === '1'; localStorage.removeItem(k); return ok; } catch (e) { return false; } }
+function inAppBrowser() { return /Line\/|Instagram|FBAN|FBAV|FB_IAB|MicroMessenger|KAKAOTALK|Twitter|TikTok|musical_ly/i.test(navigator.userAgent || ''); }
+function updateStoreWarn() {
+  const el = $('#storeWarn'); if (!el) return;
+  const ok = lsOK(), cloud = !!Cloud.db;
+  if (!ok && !cloud) el.innerHTML = '<b>この環境では、セーブが残りません。</b>ふつうのブラウザ（Safari・Chromeなど）で開き直すか、遊んだあとに「セーブの管理」からコードを控えてください。';
+  else if (inAppBrowser() && !cloud) el.innerHTML = '<b>アプリ内ブラウザでは、セーブが消えやすいです。</b>ふつうのブラウザで開くか、「セーブの管理」でコードを控えておくと安心です。';
+  else { el.hidden = true; return; }
+  el.hidden = false;
+}
+const b64e = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+const b64d = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+async function encodeSave(d) {
+  let out = new TextEncoder().encode(JSON.stringify(d)), tag = 'HF0';
+  if (window.CompressionStream) { try { const cs = new CompressionStream('deflate-raw'), w = cs.writable.getWriter(); w.write(out); w.close(); out = new Uint8Array(await new Response(cs.readable).arrayBuffer()); tag = 'HF1'; } catch (e) { out = new TextEncoder().encode(JSON.stringify(d)); tag = 'HF0'; } }
+  return tag + ':' + b64e(out);
+}
+async function decodeSave(text) {
+  // 貼り付けの途中で混ざりやすいもの（改行・空白・全角・引用符・見えない文字）を取り除く
+  const t = String(text || '').normalize('NFKC').replace(/[\s\u200b-\u200f\u2060\ufeff"'`「」『』<>]/g, '');
+  const m = /^(HF[01]):([A-Za-z0-9+/]+={0,2})$/i.exec(t); // 先頭の2文字は、スマホの自動修正で小文字になることがある。本文の大文字小文字は、そのまま
+  if (m) m[1] = m[1].toUpperCase();
+  if (!m) throw new Error(t ? `コードの形が違います（先頭「${t.slice(0, 6)}」・${t.length}文字。「HF1:」から始まる全体を貼ってください）` : 'コードが空です');
+  let d;
+  try {
+    let u8 = b64d(m[2]);
+    if (m[1] === 'HF1') {
+      if (!window.DecompressionStream) throw new Error('nodecomp');
+      const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter(); w.write(u8).catch(() => { }); w.close().catch(() => { }); u8 = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+    }
+    d = JSON.parse(new TextDecoder().decode(u8));
+  } catch (e) {
+    throw new Error(e && e.message === 'nodecomp' ? 'このブラウザでは、このコードを読み込めません（書き出したブラウザと同じものでお試しください）' : `コードが途中で切れているか、壊れています（${t.length}文字）。書き出し直して、全体をコピーしてください`);
+  }
+  if (!d || typeof d !== 'object' || !(d.week >= 1 && d.week <= LAST_WEEK) || !d.aff || !d.res || typeof d.name !== 'string') throw new Error('セーブデータとして読めません');
+  return d;
+}
+function currentSaveForExport() { if (!$('#title').hidden) return loadSave(); save(); return loadSave(); }
+function restoreSave(d) {
+  d._at = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { }
+  if (Cloud.db) { Cloud.save = JSON.parse(JSON.stringify(d)); cloudPut('save', { s: JSON.stringify(d), at: d._at }); }
+  refreshTitleBtns();
+}
+function closeSaveMgr() { const el = $('#saveMgr'); if (el) el.remove(); }
+function openSaveMgr() {
+  closeSaveMgr();
+  const cur = currentSaveForExport();
+  const el = document.createElement('div'); el.id = 'saveMgr';
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="セーブの管理">
+    <div class="eyebrow">セーブ</div><h2>セーブの管理</h2>
+    <p class="sm-st">いまのセーブ：<b>${cur ? `${cur.name}　第${KN(cur.week)}週` : 'なし'}</b></p>
+    <p class="sm-st">セーブデータはブラウザの履歴で保存されますが、長時間開かない場合などでリセットされてしまう場合があります。外部保存やデバイスの引き継ぎはこちらをご利用ください。</p>
+    <h3>書き出す</h3>
+    <p class="sub">いまのセーブを、短い文字（セーブコード）にします。別の端末に移すときや、念のための控えに。</p>
+    <div class="sm-row"><button type="button" class="btn" id="smCopy" ${cur ? '' : 'disabled'}>コードをコピー</button><button type="button" class="btn" id="smFile" ${cur ? '' : 'disabled'}>ファイルに保存</button></div>
+    <h3>読み込む</h3>
+    <p class="sub">コードを貼り付けて、「読み込む」を押します。いまのセーブは、置き換わります。</p>
+    <textarea id="smText" placeholder="HF1:…" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" inputmode="text"></textarea>
+    <div class="sm-row"><button type="button" class="btn" id="smLoad">読み込む</button><button type="button" class="btn" id="smPick">ファイルから選ぶ</button></div>
+    <input type="file" id="smInput" accept=".txt,text/plain" hidden>
+    <p class="sm-msg" id="smMsg" role="status"></p>
+    <div class="foot"><span></span><button type="button" class="btn primary" id="smClose">閉じる</button></div>
+  </div>`;
+  $('#app').appendChild(el);
+  const msg = (t, bad) => { const m = $('#smMsg'); m.textContent = t; m.style.color = bad ? '#a33' : ''; };
+  const code = async () => encodeSave(cur);
+  $('#smClose').addEventListener('click', closeSaveMgr);
+  $('#smCopy').addEventListener('click', async () => {
+    const c = await code();
+    try { await navigator.clipboard.writeText(c); msg('コードをコピーしました。メモ帳やメールに貼って控えてください。'); }
+    catch (e) { const t = $('#smText'); t.value = c; t.focus(); t.select(); msg('自動でコピーできませんでした。下の欄を選んで、コピーしてください。'); }
+  });
+  $('#smFile').addEventListener('click', async () => {
+    const c = await code(), fn = 'hitorigoto-save-w' + cur.week + '.txt', blob = new Blob([c], { type: 'text/plain' });
+    let dl = null; try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (_) { dl = null; }
+    if (dl) { try { await dl.save({ filename: fn, data: blob }); msg('ファイルを保存しました。'); } catch (e) { msg(e && e.code === 'declined' ? '' : '保存できませんでした。「コードをコピー」をお使いください。', true); } return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); msg('ファイルを保存しました。');
+  });
+  let armed = false;
+  const disarm = () => { armed = false; const l = $('#smLoad'); if (l) l.textContent = '読み込む'; };
+  const doLoad = async text => {
+    try {
+      const d = await decodeSave(text);
+      const now = loadSave();
+      if (now && !armed) { armed = true; msg(`いまのセーブ（第${KN(now.week)}週）は、第${KN(d.week)}週のセーブに置き換わります。よければ、もう一度「読み込む」を押してください。`); $('#smLoad').textContent = '置き換えて読み込む'; return; }
+      restoreSave(d); msg(`読み込みました（${d.name}　第${KN(d.week)}週）。タイトルの「つづきから」で始められます。`);
+      if (!$('#title').hidden) updateStoreWarn();
+    } catch (e) { msg('読み込めませんでした：' + (e && e.message ? e.message : '形式が違います'), true); }
+  };
+  $('#smLoad').addEventListener('click', () => doLoad($('#smText').value));
+  $('#smText').addEventListener('input', disarm);
+  $('#smPick').addEventListener('click', () => $('#smInput').click());
+  $('#smInput').addEventListener('change', async e => { const f = e.target.files && e.target.files[0]; if (!f) return; try { $('#smText').value = (await f.text()).trim(); doLoad($('#smText').value); } catch (_) { msg('ファイルを読めませんでした。', true); } });
+}
+$('#btnMgr').addEventListener('click', () => { Sound.init(); openSaveMgr(); });
+function startNameForm() { Sound.init(); Sound.play('title'); $('#titleBtns').hidden = true; $('#newConfirm').hidden = true; $('#nameForm').hidden = false; $('#nameInput').focus(); }
+$('#btnNew').addEventListener('click', () => {
+  const d = loadSave();
+  if (!d) { startNameForm(); return; }
+  $('#newConfirmTx').textContent = `いまのセーブ（${d.name}　第${KN(d.week)}週）は、はじめからにすると消えます。消してもよろしいですか？ 残したいときは、先に「セーブの管理」でコードを控えてください。`;
+  $('#titleBtns').hidden = true; $('#newConfirm').hidden = false;
+});
+$('#btnNewNo').addEventListener('click', () => { $('#newConfirm').hidden = true; $('#titleBtns').hidden = false; });
+$('#btnNewYes').addEventListener('click', startNameForm);
+updateStoreWarn(); Cloud.ready.then(updateStoreWarn);
 $('#nameForm').addEventListener('submit', e => {
   e.preventDefault();
   const nm = ($('#nameInput').value || '').trim().slice(0, 8) || '湊';
