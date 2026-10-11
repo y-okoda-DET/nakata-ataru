@@ -2273,26 +2273,23 @@ function saveImage(S){
   const a=document.createElement('a');a.href=URL.createObjectURL(S.blob);a.download=`buntai-beast-${me.no}.png`;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return true;
 }
+// Xの投稿画面を開く。アプリが入っていればアプリ、なければブラウザで開く（リンクのクリックで開くと、スマホがそう振り分ける）
+function openX(url){
+  const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.display='none';
+  document.body.appendChild(a);a.click();a.remove();
+}
 async function postX(S){
   const text=S.text.value,msg=S.msg;
   const intent='https://x.com/intent/post?text='+encodeURIComponent(text);
-  const touch=matchMedia('(pointer:coarse)').matches;
-  // スマホ：共有メニューで画像つきのままXアプリへ
-  if(touch&&S.blob&&navigator.canShare){
-    const file=new File([S.blob],`buntai-beast-${me.no}.png`,{type:'image/png'});
-    if(navigator.canShare({files:[file]})){
-      try{await navigator.clipboard.writeText(text)}catch(e){}
-      try{await navigator.share({files:[file],text});msg.textContent='文が入っていなかったら、投稿欄に貼り付けてください（コピー済み）。';return}
-      catch(e){if(e&&e.name==='AbortError')return}
-    }
-  }
-  // パソコン：画像をコピーしてからXの投稿画面を開く
+  // 画像のコピーは、ボタンを押した直後に始める（あとからだとブラウザに止められる）
+  let clip=null;
+  try{if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write&&S.blob)clip=navigator.clipboard.write([new ClipboardItem({'image/png':S.blob})])}catch(e){clip=null}
+  openX(intent);
   let copied=false;
-  try{if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write&&S.blob){await navigator.clipboard.write([new ClipboardItem({'image/png':S.blob})]);copied=true}}catch(e){}
-  const w=window.open(intent,'_blank');if(w)try{w.opener=null}catch(e){}
-  if(copied)msg.textContent='画像をコピーしました。Xの投稿欄で貼り付け（Ctrl+V／⌘+V）すると画像がつきます。';
+  if(clip){try{await clip;copied=true}catch(e){}}
+  const touch=matchMedia('(pointer:coarse)').matches;
+  if(copied)msg.textContent=touch?'画像をコピーしました。Xの投稿欄を長押しして「ペースト」すると、画像がつきます。':'画像をコピーしました。Xの投稿欄で貼り付け（Ctrl+V／⌘+V）すると画像がつきます。';
   else{saveImage(S);msg.textContent='画像を保存しました。Xの投稿欄で画像を添付してください。'}
-  if(!w)msg.textContent+='（Xが開かないときは、ポップアップを許可してください）';
 }
 const SHARES={};
 function initSharePanel(panel,mode){
