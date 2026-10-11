@@ -354,6 +354,7 @@ body.modal{overflow:hidden}
       <h1 class="logo" aria-label="文癖（ブンペキ）"><span class="m" aria-hidden="true"><span class="r">ブン</span><span class="b">文</span></span><span class="m" aria-hidden="true"><span class="r">ペキ</span><span class="b k">癖</span></span></h1>
       <p class="lead">きみの文章が、キャラになって、戦う。</p>
     </div>
+    <button class="chip" id="sndBtn" type="button" aria-pressed="true">効果音：ON</button>
   </header>
 
   <section id="s-input" class="card">
@@ -525,6 +526,7 @@ body.modal{overflow:hidden}
       <div class="bopts">
         <label><input type="checkbox" id="autoPlay"> オートで戦う</label>
         <label><input type="checkbox" id="fastMsg"> 文字送りを速く</label>
+        <label><input type="checkbox" id="sndOpt" checked> 効果音</label>
       </div>
     </div>
     <div class="cutin" id="cutin" hidden aria-hidden="true"><div class="ci-band" id="ciBand"><canvas id="ciCanvas"></canvas><div class="ci-txt"><span class="ci-label" id="ciLabel"></span><span class="ci-q" id="ciQuote"></span></div></div></div>
@@ -575,6 +577,101 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h}
 function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+/* ================= 効果音（ファイルなし。ブラウザの中で音を合成する） =================
+   押す・生まれる・攻撃・会心・かわす・回復・カットイン・勝敗に音がつく。ON/OFFは端末に覚えさせる。 */
+const Sound=(()=>{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  let ctx=null,master=null,out=null,buf=null,on=store.get('bb-snd')!=='0';
+  function init(){
+    if(!AC)return null;
+    if(!ctx){
+      try{
+        ctx=new AC();master=ctx.createGain();master.gain.value=.55;
+        const comp=ctx.createDynamicsCompressor();master.connect(comp);comp.connect(ctx.destination);out=master;
+        const n=ctx.sampleRate;buf=ctx.createBuffer(1,n,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+      }catch(e){ctx=null;return null}
+    }
+    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+    return ctx;
+  }
+  function tone(o){
+    const t0=ctx.currentTime+(o.at||0),dur=o.dur||.15;
+    const osc=ctx.createOscillator(),g=ctx.createGain();osc.type=o.type||'sine';
+    osc.frequency.setValueAtTime(o.f,t0);if(o.to)osc.frequency.exponentialRampToValueAtTime(Math.max(20,o.to),t0+dur);
+    const v=o.vol==null?.3:o.vol,a=o.a||.004;
+    g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(v,t0+a);g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+    osc.connect(g);g.connect(out);osc.start(t0);osc.stop(t0+dur+.05);
+  }
+  function noise(o){
+    const t0=ctx.currentTime+(o.at||0),dur=o.dur||.15;
+    const src=ctx.createBufferSource();src.buffer=buf;
+    const fl=ctx.createBiquadFilter();fl.type=o.type||'bandpass';fl.Q.value=o.q||1;
+    fl.frequency.setValueAtTime(o.f,t0);if(o.to)fl.frequency.exponentialRampToValueAtTime(Math.max(40,o.to),t0+dur);
+    const g=ctx.createGain(),v=o.vol==null?.3:o.vol;
+    g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(v,t0+(o.a||.004));g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+    src.connect(fl);fl.connect(g);g.connect(out);src.start(t0,Math.random()*.5);src.stop(t0+dur+.05);
+  }
+  const arp=(notes,o)=>notes.forEach((f,i)=>tone({f,dur:o.dur||.16,at:i*(o.gap||.07),type:o.type||'triangle',vol:o.vol||.18}));
+  // 音ごとの大きさの調整（小さい音は持ち上げ、決め手の音は少し抑える）
+  const GAIN={tick:2.2,blip:2.6,tab:2,select:1.5,whoosh:3.5,throw:2.5,hit:1.8,crit:1.6,miss:3,guard:2.2,debuff:2.5,charge:3,pop:3,ko:2.5,cutin:.7,win:.9,lose:1.2,heal:1.3,ok:1.2};
+  const SE={
+    tick(){tone({f:1500,to:950,dur:.045,vol:.07})},
+    blip(){tone({f:480+Math.random()*160,dur:.035,type:'square',vol:.025})},
+    tab(){tone({f:660,to:990,dur:.09,type:'triangle',vol:.12})},
+    select(){tone({f:880,to:1320,dur:.08,type:'triangle',vol:.14});tone({f:1760,dur:.1,at:.04,vol:.06})},
+    ok(){arp([784,1047,1568],{gap:.08,dur:.2,vol:.16})},
+    // キャラが生まれる：ぽん→きらきら上昇
+    birth(){
+      tone({f:220,to:90,dur:.12,vol:.3});noise({f:900,dur:.06,vol:.12});
+      arp([523,659,784,1047,1319,1568],{gap:.065,dur:.2,vol:.16});
+      tone({f:2093,dur:.4,at:.4,vol:.07});tone({f:2637,dur:.4,at:.45,vol:.05});
+    },
+    appear(){noise({f:300,to:2600,dur:.4,q:2,vol:.22});tone({f:110,to:420,dur:.35,type:'sawtooth',vol:.1});tone({f:90,dur:.25,at:.38,vol:.3})},
+    whoosh(){noise({f:1800,to:450,dur:.22,q:1.4,vol:.16})},
+    throw(){tone({f:600,to:1900,dur:.13,type:'square',vol:.06});noise({f:2500,to:6000,dur:.1,type:'highpass',vol:.05})},
+    hit(m){
+      m=m||.7;tone({f:150+60*m,to:45,dur:.18,vol:.35+.3*m});
+      noise({f:900+800*m,dur:.09,q:.8,vol:.18+.25*m});tone({f:420,to:140,dur:.08,type:'square',vol:.06*m})
+    },
+    crit(m){
+      SE.hit(1);noise({f:5000,dur:.18,type:'highpass',vol:.12,at:.02});
+      tone({f:1318,dur:.12,at:.05,type:'triangle',vol:.2});tone({f:1760,dur:.3,at:.12,type:'triangle',vol:.2});tone({f:2637,dur:.35,at:.2,vol:.06});
+    },
+    miss(){noise({f:3200,to:700,dur:.26,q:1.2,vol:.14});tone({f:520,to:300,dur:.16,vol:.05})},
+    heal(){arp([523,659,784,1047],{gap:.07,dur:.22,type:'sine',vol:.16});tone({f:2093,dur:.3,at:.3,vol:.05})},
+    guard(){tone({f:300,to:200,dur:.1,type:'square',vol:.1});tone({f:1800,dur:.18,at:.02,type:'triangle',vol:.1});tone({f:2400,dur:.2,at:.02,type:'triangle',vol:.05})},
+    debuff(){tone({f:700,to:180,dur:.3,type:'sawtooth',vol:.09});tone({f:710,to:190,dur:.3,type:'sawtooth',vol:.07,at:.02})},
+    charge(){tone({f:180,to:900,dur:.35,type:'sawtooth',vol:.07});noise({f:400,to:3000,dur:.35,q:2,vol:.08})},
+    pop(){tone({f:880,to:1250,dur:.07,type:'triangle',vol:.11})},
+    // 決め手のカットイン：せり上がり→どん！＋和音
+    cutin(){
+      tone({f:180,to:1400,dur:.17,type:'sawtooth',vol:.08});
+      noise({f:2200,to:200,dur:.55,type:'lowpass',q:.7,vol:.45,at:.16});tone({f:100,to:38,dur:.6,vol:.6,at:.16});
+      [392,494,587].forEach(f=>tone({f,dur:.45,type:'sawtooth',vol:.07,at:.17}));
+    },
+    ko(){tone({f:700,to:70,dur:.6,type:'sawtooth',vol:.14});noise({f:1200,to:150,dur:.5,type:'lowpass',vol:.2})},
+    win(){
+      arp([392,523,659,784],{gap:.1,dur:.16,type:'square',vol:.09});
+      [523,659,784,1047].forEach(f=>tone({f,dur:.9,at:.45,type:'triangle',vol:.12}));tone({f:131,dur:.9,at:.45,type:'sine',vol:.25});
+      tone({f:2093,dur:.5,at:.5,vol:.05});
+    },
+    lose(){arp([330,311,294,262],{gap:.26,dur:.45,type:'triangle',vol:.14});tone({f:98,to:82,dur:1.1,at:.1,vol:.18})}
+  };
+  return{
+    play(name,arg){
+      if(!on)return;if(!init())return;
+      try{if(!SE[name])return;const g=ctx.createGain();g.gain.value=GAIN[name]||1;g.connect(master);out=g;SE[name](arg);out=master}catch(e){out=master}
+    },
+    unlock(){if(on)init()},
+    get on(){return on},
+    set(v){on=!!v;store.set('bb-snd',on?'1':'0');if(on){init();try{SE.tab()}catch(e){}}syncSoundUi()}
+  };
+})();
+function syncSoundUi(){
+  const b=$('#sndBtn');if(b){b.textContent='効果音：'+(Sound.on?'ON':'OFF');b.setAttribute('aria-pressed',String(Sound.on))}
+  const o=$('#sndOpt');if(o)o.checked=Sound.on;
+}
 const cut=(v,n,d='')=>{v=typeof v==='string'?v.trim().replace(/\s+/g,' '):'';return v?[...v].slice(0,n).join(''):d};
 function truncate(s,n=38){const a=[...s];return a.length>n?a.slice(0,n).join('')+'…':s}
 
@@ -1569,6 +1666,15 @@ $('#clearSrc').addEventListener('click',()=>{
 });
 $('#src').value=store.get('bb-draft')||'';updateCount();
 
+document.addEventListener('pointerdown',()=>Sound.unlock(),{passive:true});
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('button,.tab,.foe,.mv,#msg');
+  if(!t||t.id==='go'||t.id==='sndBtn')return;
+  Sound.play(t.classList.contains('tab')?'tab':t.classList.contains('mv')?'select':'tick');
+});
+$('#sndBtn').addEventListener('click',()=>Sound.set(!Sound.on));
+$('#sndOpt').addEventListener('change',e=>Sound.set(e.target.checked));
+syncSoundUi();
 $('#go').addEventListener('click',()=>{
   const t=$('#src').value.trim();
   if([...t].length<50){$('#inErr').textContent=`あと${50-[...t].length}字ほしいです。50字以上貼ってください。`;show('#inErr');return}
@@ -1578,7 +1684,7 @@ $('#go').addEventListener('click',()=>{
   const smp=SAMPLES.find(s=>s.norm===a.text);
   if(aiSaved){try{const o=JSON.parse(aiSaved);me=makeChar(a,o,'ai');me.provider=o.provider||'AI'}catch(e){me=null}}
   if(!me||me.seed!==a.seed)me=smp?makeChar(a,smp.p,'sample'):makeChar(a,localPersona(a),'local');
-  toSelect();
+  toSelect();Sound.play('birth');
 });
 
 /* ---------- AIでもっと深く読む ----------
@@ -1896,7 +2002,7 @@ function say(text,hold=1100){
     const showAll=()=>{clearInterval(t1);el.textContent=text;typed=true;box.classList.add('ready');t2=setTimeout(end,fast?350:hold)};
     advanceMsg=()=>{if(!typed)showAll();else end()};
     if(fast||reduceMotion()){showAll();return}
-    t1=setInterval(()=>{if(tok!==battleToken){end();return}i+=2;el.textContent=ch.slice(0,i).join('');if(i>=ch.length)showAll()},30);
+    t1=setInterval(()=>{if(tok!==battleToken){end();return}i+=2;if((i/2)%2===0)Sound.play('blip');el.textContent=ch.slice(0,i).join('');if(i>=ch.length)showAll()},30);
   });
 }
 function hpColor(el,r){el.classList.toggle('mid',r<=0.5&&r>0.2);el.classList.toggle('lo',r<=0.2)}
@@ -1907,14 +2013,16 @@ function setHP(i,hp,max){
 function monEl(i){return $(i?'#cvR':'#cvL')}
 // キャラの上に小さく数字や「かわした」を出す
 function popup(i,text,cls){
+  if(cls==='heal'&&!/^\+/.test(text))Sound.play('miss');else if(/^\+/.test(text))Sound.play('heal');else if(cls==='crit')Sound.play('crit');else Sound.play('hit',clamp((parseInt(text,10)||20)/55,.4,1));
   const field=$('#field'),m=monEl(i);if(!field||!m)return;
   const fr=field.getBoundingClientRect(),r=m.getBoundingClientRect();
   const el=mk('div','pop '+(cls||''),text);el.style.left=(r.left-fr.left+r.width/2)+'px';el.style.top=(r.top-fr.top+r.height*0.2)+'px';
   field.appendChild(el);setTimeout(()=>el.remove(),900);
 }
 function flash(i){const el=monEl(i);if(el.animate&&!reduceMotion())el.animate([{opacity:1},{opacity:0.1},{opacity:1},{opacity:0.1},{opacity:1}],{duration:420})}
-function lunge(i){const el=monEl(i);if(el.animate&&!reduceMotion())el.animate([{transform:'translate(0,0)'},{transform:i?'translate(-10%,8%)':'translate(10%,-8%)'},{transform:'translate(0,0)'}],{duration:260})}
+function lunge(i){Sound.play('whoosh');const el=monEl(i);if(el.animate&&!reduceMotion())el.animate([{transform:'translate(0,0)'},{transform:i?'translate(-10%,8%)':'translate(10%,-8%)'},{transform:'translate(0,0)'}],{duration:260})}
 function throwQuote(i,q){
+  Sound.play('throw');
   return new Promise(res=>{
     const fly=$('#fly'),field=$('#field');
     if(!fly.animate||reduceMotion()){res();return}
@@ -1979,6 +2087,9 @@ async function playEvent(e,B,shown){
   if(e.charmed)notes.push(`${D.name}の 攻撃が 下がった！`);
   if(e.taunted)notes.push(`${D.name}の 防御が 下がった！`);
   if(e.charging)notes.push(`${A.name}は 力を ためている…`);
+  if(e.guard||e.defUp)Sound.play('guard');
+  if(e.stunned||e.confused||e.charmed||e.taunted)Sound.play('debuff');
+  if(e.charging||e.charged)Sound.play('charge');
   if(notes.length)await say(notes.join(' '),600);
   if(e.regen){shown[atk]=Math.min(B.S[atk].max,shown[atk]+e.regen);setHP(atk,shown[atk],B.S[atk].max);popup(atk,'+'+e.regen,'heal')}
   shown[0]=B.S[0].hp;shown[1]=B.S[1].hp;setHP(0,shown[0],B.S[0].max);setHP(1,shown[1],B.S[1].max);
@@ -1987,6 +2098,7 @@ async function playEvent(e,B,shown){
 }
 // 決め手のカットイン（画面いっぱいに一文を出す）
 async function cutIn(i,c,q,label,move){
+  Sound.play('cutin');
   const el=$('#cutin');if(!el)return;
   el.classList.toggle('foe',i===1);
   // 一文が公開されていない相手は、一文のかわりに技名を出す
@@ -2002,6 +2114,7 @@ async function cutIn(i,c,q,label,move){
 }
 function shake(){const f=$('#field');if(f&&f.animate&&!reduceMotion())f.animate([{transform:'translate(0,0)'},{transform:'translate(-6px,3px)'},{transform:'translate(5px,-4px)'},{transform:'translate(-3px,2px)'},{transform:'translate(0,0)'}],{duration:260})}
 function retort(i,c){
+  Sound.play('pop');
   const lines=[c.catch,...c.moves.map(m=>m.q)].filter(t=>t&&t!==NOQ);if(!lines.length)return;
   const text=truncate(lines[Math.floor(Math.random()*lines.length)],26);
   const field=$('#field'),m=monEl(i);if(!field||!m)return;
@@ -2014,6 +2127,7 @@ function retort(i,c){
 }
 async function startBattle(opp){
   foe=opp;battleToken={};const tok=battleToken;
+  Sound.play('appear');
   only('#s-battle');show('#result',false);show('#cmd',false);
   $('#nL').textContent=me.name;$('#nR').textContent=foe.name;[['#nL',me.name],['#nR',foe.name]].forEach(([id,n])=>{const L=[...n].length;$(id).className=L>8?'xlong':L>6?'long':''});$('#lvL').textContent='Lv'+me.lv+(me.bk?' ボス級':'');$('#lvR').textContent='Lv'+foe.lv+(foe.dailyBoss?' 昨日のボス':foe.bk?' ボス級':'');
   const tg=$('#tgR');tg.textContent=ATTR[foe.attr].name;tg.style.background=ATTR[foe.attr].hex;
@@ -2040,13 +2154,14 @@ async function startBattle(opp){
     }
   }
   let winner;
-  if(B.S[1].hp<=0){winner=0;monEl(1).classList.add('faint');await say(`${foe.name}は 力つきた！`,900)}
-  else if(B.S[0].hp<=0){winner=1;monEl(0).classList.add('faint');await say(`${me.name}は 力つきた…`,900)}
+  if(B.S[1].hp<=0){winner=0;monEl(1).classList.add('faint');Sound.play('ko');await say(`${foe.name}は 力つきた！`,900)}
+  else if(B.S[0].hp<=0){winner=1;monEl(0).classList.add('faint');Sound.play('ko');await say(`${me.name}は 力つきた…`,900)}
   else{winner=B.S[0].hp/B.S[0].max>=B.S[1].hp/B.S[1].max?0:1;await say('時間切れ！ 残りHPの多いほうの勝ち！',900)}
   if(tok!==battleToken)return;
   finish(winner,B);
 }
 function finish(winner,B){
+  Sound.play(winner===0?'win':'lose');
   const w=winner===0?me:foe;
   sendBattle(foe,winner===1);
   if(foe.src==='others')recordMine(me,winner===0,foe);
@@ -2438,7 +2553,7 @@ $('#regGo').addEventListener('click',async()=>{
   $('#regGo').disabled=true;$('#regMsg').textContent='登録しています…';
   try{
     const j=await api('/beasts',{method:'POST',body:JSON.stringify({code:encodeChar(me,$('#regQuotes').checked),token})});
-    store.set(regKey(),JSON.stringify({id:j.id,token}));renderRegister();
+    store.set(regKey(),JSON.stringify({id:j.id,token}));Sound.play('ok');renderRegister();
   }catch(e){$('#regMsg').textContent=e.message;$('#regGo').disabled=false}
 });
 $('#regDel').addEventListener('click',async()=>{
