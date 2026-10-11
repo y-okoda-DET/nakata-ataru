@@ -1,7 +1,7 @@
 // nakata-ataru.com の入口。静的ファイルは Workers Assets がそのまま返し、
 // ここを通るのは wrangler.jsonc の run_worker_first に書いたパスだけ。
 //   /api/buntai/*                文癖（ブンペキ）のAPI（D1）
-//   /bunpeki/ , /bunpeki/index.html   文癖のページ（リンクプレビュー用に meta を書きかえる）
+//   /bunpeki/play/ , /bunpeki/play/index.html   文癖のページ（リンクプレビュー用に meta を書きかえる）
 import { onRequest as buntaiApi } from './buntai-api.js';
 import { onRequest as ogRewrite } from './og-middleware.js';
 
