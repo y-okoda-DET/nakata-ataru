@@ -1,9 +1,15 @@
 {
   "name": "nakata-ataru",
+  "main": "worker/index.js",
   "compatibility_date": "2025-09-01",
   "workers_dev": true,
   "assets": {
     "directory": "./",
-    "not_found_handling": "404-page"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/buntai/*", "/bunpeki/", "/bunpeki/index.html"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "buntai-beast", "database_id": "c78d66b5-cb3d-4bdd-a3cd-c50d1a8abc39" }
+  ]
 }

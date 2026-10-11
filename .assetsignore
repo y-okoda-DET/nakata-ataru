@@ -2,3 +2,10 @@
 wrangler.jsonc
 README.md
 .git
+
+worker
+db
+node_modules
+.wrangler
+package.json
+package-lock.json
