@@ -35,7 +35,9 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{background:var(--paper)}
+html,body{background:var(--paper);overflow-x:hidden}
+@supports (overflow-x:clip){html,body{overflow-x:clip}}
+@media (max-width:600px){textarea,input[type=text],select{font-size:16px!important}}
 body{
   color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;
   background-image:
@@ -315,6 +317,14 @@ body.modal{overflow:hidden}
 .myrow .chip.warn{border-color:var(--red);color:var(--red)}
 .myrow .fav{border:none;background:none;font-size:22px;line-height:1;padding:0 2px;cursor:pointer;color:#B9B6C3;float:right}
 .myrow .fav.on{color:#E5B01A;text-shadow:0 0 0 var(--ink)}
+.reglink{display:inline-block;margin-top:10px;border:none;background:none;padding:2px 0;font:inherit;font-size:13px;font-weight:700;color:var(--red);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.regpitch{font-size:13px;font-weight:700;line-height:1.7;margin:0 0 6px;padding:8px 12px;background:var(--red-soft);border-radius:4px}
+#registerBox.flash{animation:regflash 1.6s ease-out}
+@keyframes regflash{0%,40%{box-shadow:0 0 0 4px #E5B01A;background:#FFF6D6}100%{box-shadow:0 0 0 0 transparent;background:transparent}}
+.reginvite{width:100%;max-width:34em;box-sizing:border-box;text-align:left;border:2px dashed var(--ink);border-radius:6px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.reginvite p{margin:0}
+.reginvite b{font-size:14px}
+.reginvite .chip{align-self:flex-start}
 .mymsg{font-size:12px;font-weight:700;color:var(--red);margin:0 0 8px}
 .myrec{font-size:12px;font-weight:700;margin:6px 0 0}
 #myCodeIo{min-height:84px;font-family:var(--f-dot);font-size:12px;line-height:1.5;word-break:break-all}
@@ -403,6 +413,7 @@ body.modal{overflow:hidden}
         <div class="catch" id="meCatch"></div>
         <div class="row" style="margin-top:14px"><button class="btn sub" id="backChara" type="button">文章を書き直す</button><button class="btn xbtn" id="xOpenChara" type="button">Xで見せる</button></div>
         <div class="row" style="margin-top:10px"><button class="btn" id="toFight">このキャラで対戦する</button></div>
+        <button class="reglink" id="toReg" type="button" hidden>このキャラを、みんなの対戦相手に登録する ↓</button>
       </div>
     </div>
 
@@ -436,7 +447,8 @@ body.modal{overflow:hidden}
     </details>
     <div id="registerBox" hidden>
       <h3 class="sub">みんなの対戦相手として登録する</h3>
-      <p class="note">登録すると、このキャラ（名前・正体・決めゼリフ・技・ステータス・見た目）が、ほかの人のランダム対戦に出てきます。元の文章は送られません。登録はいつでも取り消せます。</p>
+      <p class="regpitch">登録すると、ほかの人のランダム対戦にきみのキャラが出てきます。いちばん勝ったキャラは、次の日の「昨日のボス」になります。挑まれた対戦の戦績は、マイキャラで見られます。</p>
+      <p class="note">公開されるのは、このキャラ（名前・正体・決めゼリフ・技・ステータス・見た目）だけです。元の文章は送られません。登録はいつでも取り消せます。</p>
       <label class="chk"><input type="checkbox" id="regConsent"> 上の内容を公開することに同意する</label>
       <label class="chk"><input type="checkbox" id="regQuotes"> 技で飛ばす一文も公開する（きみの文章の一部です）</label>
       <div class="row" style="margin-top:8px"><button class="btn sub" id="regGo" disabled>登録する</button><button class="chip" id="regDel" hidden>登録を取り消す</button></div>
@@ -455,7 +467,7 @@ body.modal{overflow:hidden}
       <ol class="aisteps">
         <li>AIを選んで開き、そのまま送信
           <div class="row" id="aiOpenBtns"></div>
-          <p class="note" id="aiOpenMsg">きみの文章が、選んだAIに送られます。</p></li>
+          <p class="note" id="aiOpenMsg">ChatGPT・Claudeは、お願い文が入力欄に入った状態で開きます。Geminiは自動で入力できないので、押すとお願い文をコピーしてから開きます。開いたら入力欄に貼り付けて送信してください。※お願い文には、きみの文章が入っています。</p></li>
         <li>答えをコピーして、ここで貼り付け
           <div class="row"><button class="btn sub" id="pasteBtn">答えを貼り付け</button></div>
           <details class="manual"><summary>うまく貼れないとき</summary><textarea id="aiAnswer" placeholder="```json で始まる答えをそのまま貼り付け"></textarea>
@@ -469,7 +481,7 @@ body.modal{overflow:hidden}
     <div class="bossbox chal" id="chBox" hidden></div>
     <div id="randomBox" hidden>
       <h2>ランダム対戦</h2>
-      <p class="note">みんなが登録したキャラと戦えます。だれかの文章から生まれたキャラです。</p>
+      <p class="note">みんなが登録したキャラと戦えます。だれかの文章から生まれたキャラです。<button class="reglink" id="toReg2" type="button" hidden style="margin:0 0 0 4px">きみのキャラも出せます →</button></p>
       <div class="bossbox" id="bossBox" hidden></div>
       <button class="btn" id="randomGo">ランダムな相手と戦う</button>
       <div class="roster" id="randomList" style="margin-top:14px"></div>
@@ -528,6 +540,7 @@ body.modal{overflow:hidden}
         <div class="row" style="justify-content:center"><button class="btn line" id="rvLine" type="button">LINEで送る</button><button class="btn sub" id="rvOther" type="button">ほかの方法で送る</button></div>
         <p class="note" id="rvMsg"></p>
       </div>
+      <div class="reginvite" id="regInvite" hidden><b>このキャラを、みんなの対戦相手にしませんか？</b><p>登録すると、ほかの人のランダム対戦に出てきます。勝ち続ければ「昨日のボス」に。</p><button class="chip" id="regInviteGo" type="button">登録のしかたを見る</button></div>
       <button class="btn xbtn" id="xOpen" type="button">Xで共有する</button>
       <div class="sharebox" id="sharePanel" hidden></div>
       <div class="row" style="justify-content:center">
@@ -1579,10 +1592,10 @@ const OPEN_AI=[
   {k:'gemini',name:'Gemini',url:()=> 'https://gemini.google.com/app',prefill:false}
 ];
 const MAX_URL=50000; // テストで確かめた長さの範囲。超えるときはコピー方式にする
-let aiProvider=null,aiCaps={claude:false,device:false};
+let aiProvider=null,aiCaps={claude:false,device:false},deviceSlow=false;
 const LM_OPTS={expectedInputs:[{type:'text',languages:['ja']}],expectedOutputs:[{type:'text',languages:['ja']}]};
 async function deviceAvailable(){
-  try{if(!('LanguageModel' in self))return false;const av=await LanguageModel.availability(LM_OPTS);return!!av&&av!=='unavailable'}catch(e){return false}
+  try{if(!('LanguageModel' in self))return false;const av=await LanguageModel.availability(LM_OPTS);return av==='available'}catch(e){return false}
 }
 function deepPrompt(a,no){
   return `あなたは対戦ゲーム「文癖（ブンペキ）」のキャラクターデザイナーです。下の【文章】を読んで書き手の細かい癖を見つけ、この文章を一体のキャラクターにしてください。
@@ -1630,12 +1643,16 @@ async function runDirect(kind){
   const name=kind==='device'?'このPCのGemini（Gemini Nano）':'Claude';
   try{
     let o;
-    if(kind==='device')o=await deviceGenerate(a);
+    if(kind==='device'){
+      // PCによっては何分もかかるので、60秒で打ち切る
+      o=await Promise.race([deviceGenerate(a),new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),60000))]);
+    }
     else{const sample=await getSample();if(!sample)throw{code:'not_granted'};o=await sample.json(deepPrompt(a,me.no),{modelTier:'default'})}
     applyPersona(a,o,name);
     $('#aiText').textContent=`${name}が読み直しました。もう一度押すと別の解釈になります。`;
     setTab('chara');window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){
+    if(e&&e.code==='timeout'){deviceSlow=true;btns.filter(b=>/Gemini/.test(b.textContent)).forEach(b=>b.remove());$('#aiText').textContent='このPCのGeminiでは時間がかかりすぎるようです。下の手順で、ふだんのAIを使ってください。';return}
     $('#aiText').textContent=e&&(e.code==='not_granted'||e.code==='sampling_disabled')?'AIは使えませんでした。下の方法なら使えます。':'うまく作れませんでした。もう一度押すか、下の方法を使ってください。';
   }finally{clearInterval(timer);btns.forEach(b=>b.disabled=false)}
 }
@@ -1652,15 +1669,15 @@ async function setupAIBox(c){
     el.addEventListener('click',async()=>{
       aiProvider=P.name;
       if(usePrefill){$('#aiOpenMsg').textContent=`${P.name}の入力欄にお願い文が入っています。そのまま送信してください。`}
-      else{const ok=await copyText(prompt);$('#aiOpenMsg').textContent=ok?`お願い文をコピーしました。${P.name}の入力欄に貼り付けて送信してください。`:'コピーできませんでした。時間をおいてもう一度押してください。'}
+      else{const ok=await copyText(prompt);$('#aiOpenMsg').textContent=ok?`お願い文はコピー済みです。${P.name}は自動で入力できないので、開いた${P.name}の入力欄を長押し（パソコンは右クリック）して「貼り付け」し、送信してください。`:'お願い文をコピーできませんでした。時間をおいてもう一度押してください。'}
     });
     box.appendChild(el);
   });
   // この画面でそのまま呼べるAI
-  aiCaps.claude=!!(await getSample());aiCaps.device=await deviceAvailable();
+  aiCaps.claude=!!(await getSample());aiCaps.device=!deviceSlow&&await deviceAvailable();
   const db=$('#aiDirectBtns');db.innerHTML='';
   if(aiCaps.claude){const b=mk('button','btn','Claudeでその場で読む');b.addEventListener('click',()=>runDirect('claude'));db.appendChild(b)}
-  if(aiCaps.device){const b=mk('button','btn sub','このPCのGeminiでその場で読む（無料）');b.addEventListener('click',()=>runDirect('device'));db.appendChild(b)}
+  if(aiCaps.device){const b=mk('button','btn sub','このPCのGeminiでその場で読む（無料・1分ほど）');b.addEventListener('click',()=>runDirect('device'));db.appendChild(b)}
   show('#aiDirect',aiCaps.claude||aiCaps.device);
   if(aiCaps.claude||aiCaps.device)$('#aiText').textContent='この画面でそのまま読ませることもできます（30秒ほど）。または、下の手順でふだんのAIを使ってください。';
   aiReady=true;show('#tabAi');if(curTab==='ai')setTab('ai');
@@ -1786,7 +1803,7 @@ function setTab(k){
   curTab=k;
   [...document.querySelectorAll('#tabbar .tab')].forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===k)));
   show('#s-card',k!=='fight');show('#cardMain',k==='chara');show('#aiBox',k==='ai');show('#s-select',k==='fight');
-  if(k==='fight'){renderChallenger();buildRoster($('#roster'),true);show('#randomBox',apiOK);if(apiOK){if(!bossLoaded)loadBoss();else renderBoss()}$('#cpuHead').textContent=apiOK?'':'対戦相手をえらぶ';show('#cpuHead',!apiOK);if(apiOK&&!randomPool.length)loadRandom();else renderRandom()}
+  if(k==='fight'){renderChallenger();show('#toReg2',canRegister());buildRoster($('#roster'),true);show('#randomBox',apiOK);if(apiOK){if(!bossLoaded)loadBoss();else renderBoss()}$('#cpuHead').textContent=apiOK?'':'対戦相手をえらぶ';show('#cpuHead',!apiOK);if(apiOK&&!randomPool.length)loadRandom();else renderRandom()}
   if(k==='chara')renderRegister();
   if(k==='chara')requestAnimationFrame(()=>drawBeast($('#meCanvas'),me));
 }
@@ -1978,7 +1995,7 @@ async function cutIn(i,c,q,label,move){
   try{if(navigator.vibrate)navigator.vibrate(i===0?[30,40,70]:[60])}catch(err){}
   const band=$('#ciBand'),fast=$('#fastMsg').checked;
   if(band.animate&&!reduceMotion()){band.animate([{transform:'rotate(-7deg) translateX(-110%)'},{transform:'rotate(-7deg) translateX(0)'}],{duration:170,easing:'ease-out'});shake()}
-  await sleep(fast?650:1050);
+  await sleep(fast?1300:2100);
   if(el.animate&&!reduceMotion())await el.animate([{opacity:1},{opacity:0}],{duration:140}).finished.catch(()=>{});
   show('#cutin',false);
 }
@@ -2050,6 +2067,7 @@ function finish(winner,B){
     show('#winWhy');
   }else if(best&&best.d){$('#mvp').append('相手の決め手：');if(hasQ){$('#mvp').appendChild(mk('q',null,best.q));$('#mvp').append(`（「${best.label}」で${best.d}ダメージ）`)}else $('#mvp').append(`「${best.label}」で${best.d}ダメージ`)}
   renderRevenge(winner);
+  show('#regInvite',canRegister()&&winner===0&&!regInviteShown[me.no]);if(canRegister()&&winner===0)regInviteShown[me.no]=true;
   $('#msgText').textContent=winner===0?'よく やった！ もう一回 戦う？':'くやしい！ もう一回 戦う？';
   const rr=$('#resultReport');rr.innerHTML='';show('#resultReport',foe.src==='others'&&apiOK);if(foe.src==='others'&&apiOK)rr.appendChild(reportButton(foe));
   show('#result');
@@ -2380,10 +2398,19 @@ $('#randomGo').addEventListener('click',async()=>{
 
 // 登録：同意のチェックが入ったときだけ押せる。取り消し用の合言葉はこの端末にだけ保存する
 const regKey=()=>'bb-reg-'+(me?me.no:'');
+// 登録できる状態か（自サイト・自分の文章のキャラ・まだ登録していない）
+function canRegister(){return apiOK&&me&&me.src!=='sample'&&!regState()}
+const regInviteShown={};
+function goRegister(){
+  document.body.classList.remove('modal');show('#result',false);only('#tabbar','#s-card');setTab('chara');
+  setTimeout(()=>{const el=$('#registerBox');el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')},80);
+}
+$('#toReg').addEventListener('click',goRegister);$('#toReg2').addEventListener('click',goRegister);
+$('#regInviteGo').addEventListener('click',goRegister);
 function regState(){try{return JSON.parse(store.get(regKey())||'null')}catch(e){return null}}
 function renderRegister(){
-  if(!apiOK||!me||me.src==='sample'){show('#registerBox',false);return}
-  show('#registerBox');const st=regState();
+  if(!apiOK||!me||me.src==='sample'){show('#registerBox',false);show('#toReg',false);return}
+  show('#registerBox');const st=regState();show('#toReg',!st);
   show('#regGo',!st);show('#regDel',!!st);
   $('#regConsent').disabled=!!st;$('#regQuotes').disabled=!!st;
   $('#regGo').disabled=!$('#regConsent').checked;
