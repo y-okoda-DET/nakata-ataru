@@ -10,6 +10,6 @@
     "run_worker_first": ["/api/buntai/*", "/bunpeki/", "/bunpeki/index.html"]
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "buntai-beast", "database_id": "REPLACE_WITH_D1_ID" }
+    { "binding": "DB", "database_name": "buntai-beast", "database_id": "c78d66b5-cb3d-4bdd-a3cd-c50d1a8abc39" }
   ]
 }
