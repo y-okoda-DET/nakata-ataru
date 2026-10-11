@@ -412,7 +412,7 @@ body.modal{overflow:hidden}
         <p class="persona" id="mePersona"></p>
         <div class="catch" id="meCatch"></div>
         <div class="row" style="margin-top:14px"><button class="btn sub" id="backChara" type="button">文章を書き直す</button><button class="btn xbtn" id="xOpenChara" type="button">Xで見せる</button></div>
-        <div class="row" style="margin-top:10px"><button class="btn" id="toFight">このキャラで対戦する</button></div>
+        <div class="row" style="margin-top:10px"><button class="btn" id="toFight">このキャラで対戦する</button><button class="btn sub" id="aiGo" type="button" hidden>AIで深読み</button></div>
         <button class="reglink" id="toReg" type="button" hidden>このキャラを、みんなの対戦相手に登録する ↓</button>
       </div>
     </div>
@@ -1658,7 +1658,7 @@ async function runDirect(kind){
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){return false}}
 async function setupAIBox(c){
-  aiReady=false;show('#tabAi',false);if(c.src==='sample'||!meMeasure)return;
+  aiReady=false;show('#tabAi',false);show('#aiGo',false);if(c.src==='sample'||!meMeasure)return;
   const a=meMeasure;const prompt=deepPrompt(a,c.no);const enc=encodeURIComponent(prompt);
   // 開くボタン
   const box=$('#aiOpenBtns');box.innerHTML='';
@@ -1680,7 +1680,7 @@ async function setupAIBox(c){
   if(aiCaps.device){const b=mk('button','btn sub','このPCのGeminiでその場で読む（無料・1分ほど）');b.addEventListener('click',()=>runDirect('device'));db.appendChild(b)}
   show('#aiDirect',aiCaps.claude||aiCaps.device);
   if(aiCaps.claude||aiCaps.device)$('#aiText').textContent='この画面でそのまま読ませることもできます（30秒ほど）。または、下の手順でふだんのAIを使ってください。';
-  aiReady=true;show('#tabAi');if(curTab==='ai')setTab('ai');
+  aiReady=true;show('#tabAi');show('#aiGo');if(curTab==='ai')setTab('ai');
 }
 $('#pasteBtn').addEventListener('click',async()=>{
   try{const t=await navigator.clipboard.readText();if(!t)throw 0;$('#aiAnswer').value=t;applyAnswer()}
@@ -1798,6 +1798,7 @@ $('#friendGo').addEventListener('click',()=>{
 });
 
 let curTab='chara',aiReady=false;
+$('#aiGo').addEventListener('click',()=>{setTab('ai');window.scrollTo({top:0,behavior:'smooth'})});
 function setTab(k){
   if(k==='ai'&&!aiReady)k='chara';
   curTab=k;
