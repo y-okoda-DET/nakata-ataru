@@ -2274,18 +2274,35 @@ function saveImage(S){
   const a=document.createElement('a');a.href=URL.createObjectURL(S.blob);a.download=`buntai-beast-${me.no}.png`;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return true;
 }
-// Xの投稿画面を開く。アプリが入っていればアプリ、なければブラウザで開く（リンクのクリックで開くと、スマホがそう振り分ける）
-function openX(url){
-  const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.display='none';
+// Xの投稿画面を開く。アプリが入っていればアプリ（x.com/intent/post はアプリでは開かないので、アプリ専用のアドレスを使う）、なければブラウザで開く
+function clickLink(url,blank){
+  const a=document.createElement('a');a.href=url;if(blank){a.target='_blank';a.rel='noopener noreferrer'}a.style.display='none';
   document.body.appendChild(a);a.click();a.remove();
+}
+function openX(text){
+  const web='https://x.com/intent/post?text='+encodeURIComponent(text);
+  const ua=navigator.userAgent||'';
+  const ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  const android=/Android/.test(ua);
+  if(ios){
+    // アプリ用のアドレスを開く。アプリが開けば、この画面は裏に回る。画面が残っていたら、アプリが無いとみなしてブラウザで開く
+    clickLink('twitter://post?message='+encodeURIComponent(text),false);
+    let left=false;const mark=()=>{left=true};
+    ['pagehide','blur','visibilitychange'].forEach(ev=>(ev==='blur'?window:document).addEventListener(ev,mark,{once:true}));
+    window.addEventListener('pagehide',mark,{once:true});
+    setTimeout(()=>{if(!left&&document.visibilityState==='visible')clickLink(web,true)},2500);
+  }else if(android){
+    clickLink('intent://post?message='+encodeURIComponent(text)+'#Intent;scheme=twitter;package=com.twitter.android;S.browser_fallback_url='+encodeURIComponent(web)+';end',false);
+  }else{
+    const w=window.open(web,'_blank');if(w)try{w.opener=null}catch(e){}
+  }
 }
 async function postX(S){
   const text=S.text.value,msg=S.msg;
-  const intent='https://x.com/intent/post?text='+encodeURIComponent(text);
   // 画像のコピーは、ボタンを押した直後に始める（あとからだとブラウザに止められる）
   let clip=null;
   try{if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write&&S.blob)clip=navigator.clipboard.write([new ClipboardItem({'image/png':S.blob})])}catch(e){clip=null}
-  openX(intent);
+  openX(text);
   let copied=false;
   if(clip){try{await clip;copied=true}catch(e){}}
   const touch=matchMedia('(pointer:coarse)').matches;
