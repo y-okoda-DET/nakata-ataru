@@ -3739,17 +3739,39 @@ const SHARE_URL='https://nakata-ataru.com/konotochi/play/';
 // 投稿の本文：日本語は1文字を2として数えるので、本文は短く。URLとハッシュタグをつける
 function shareMsg(body){body=String(body||'').trim();if(body.length>100)body=body.slice(0,99)+'…';return `${body}\n${SHARE_URL}\n#この土地に生まれて`;}
 function xHref(body){return 'https://x.com/intent/post?text='+encodeURIComponent(shareMsg(body));}
+function clickLink(url,blank){const a=document.createElement('a');a.href=url;if(blank){a.target='_blank';a.rel='noopener noreferrer';}a.style.display='none';document.body.appendChild(a);a.click();a.remove();}
+// X：スマホはアプリを開く（アプリが無ければブラウザ）、PCは投稿画面を新しいタブで開く
+function openX(text){
+  const web='https://x.com/intent/post?text='+encodeURIComponent(text);
+  const ua=navigator.userAgent||'';
+  const ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  const android=/Android/.test(ua);
+  if(ios){
+    clickLink('twitter://post?message='+encodeURIComponent(text),false);
+    let left=false;const mark=()=>{left=true;};
+    ['pagehide','blur','visibilitychange'].forEach(ev=>(ev==='blur'?window:document).addEventListener(ev,mark,{once:true}));
+    window.addEventListener('pagehide',mark,{once:true});
+    setTimeout(()=>{if(!left&&document.visibilityState==='visible')clickLink(web,true);},2500);
+  }else if(android){
+    clickLink('intent://post?message='+encodeURIComponent(text)+'#Intent;scheme=twitter;package=com.twitter.android;S.browser_fallback_url='+encodeURIComponent(web)+';end',false);
+  }else{
+    const w=window.open(web,'_blank');if(w)try{w.opener=null;}catch(err){}
+  }
+}
 function xShareBtn(key,cls){return `<button class="xbtn ${cls||''}" data-x="${key}">${X_ICON}でシェア</button>`;}
 // 画像つきでシェア：スマホは共有シートから画像ごとXへ。使えないときは画像を保存して、Xの投稿画面を開く
 function bindXShare(btn,getBlob,name,body,msgEl){if(!btn)return;let blob=null;Promise.resolve().then(getBlob).then(b=>{blob=b;}).catch(()=>{});
   const say=t=>{if(msgEl){msgEl.textContent=t;clearTimeout(msgEl._t);msgEl._t=setTimeout(()=>{msgEl.textContent='';},6000);}};
   btn.onclick=async e=>{e.stopPropagation();const text=shareMsg(body);
-    if(blob){try{const file=new File([blob],name,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file],text})){await navigator.share({files:[file],text});return;}}catch(err){if(err&&err.name==='AbortError')return;}}
-    let w=null;try{w=window.open(xHref(body),'_blank','noopener');}catch(err){}
-    if(blob){let dl=null;try{dl=await claude.use('downloads');}catch(err){}
-      if(dl){try{await dl.save({filename:name,data:blob});say('画像を保存しました。Xの投稿画面で、この画像を添えてください。');}catch(err){say('Xの投稿画面を開きました。画像は「保存」ボタンから保存できます。');}}
-      else{try{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);say('画像を保存しました。Xの投稿画面で、この画像を添えてください。');}catch(err){say('Xの投稿画面を開きました。画像は「保存」ボタンから保存できます。');}}}
-    if(!w)say('Xを開けませんでした。文章をコピーして投稿してください。');};}
+    // 画像のコピーは、ボタンを押した直後に始める（あとからだとブラウザに止められる）
+    let clip=null;
+    try{if(blob&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write)clip=navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);}catch(err){clip=null;}
+    openX(text);
+    let copied=false;if(clip){try{await clip;copied=true;}catch(err){}}
+    const touch=matchMedia('(pointer:coarse)').matches;
+    if(copied){say(touch?'画像をコピーしました。Xの投稿欄を長押しして「ペースト」すると、画像がつきます。':'画像をコピーしました。Xの投稿欄で貼り付け（Ctrl+V／⌘+V）すると画像がつきます。');return;}
+    if(blob){try{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);say('画像を保存しました。Xの投稿欄で、この画像を添えてください。');}catch(err){say('Xの投稿画面を開きました。画像は「保存」ボタンから保存できます。');}}
+  };}
 function shareFoot(){return `${S.year}年 ${placeNm(S.fam)}生まれ／約${Math.round(S.rare.births/10000)}万人のうちの1人`;}
 function letterShareBody(){const L=S.letter||[];const t=[L[1],L[2]].filter(Boolean).join('');return `${S.kid.name}からの手紙。「${t.replace(/。$/,'')}」`;}
 function shareText(){return shareMsg(letterShareBody());}
