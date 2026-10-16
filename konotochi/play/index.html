@@ -17,9 +17,13 @@
 <meta name="twitter:title" content="この土地に生まれて">
 <meta name="twitter:description" content="あなたは親になります。子がいつ、どこに、どんな家に生まれるかは、選べません。実際の統計にもとづく、ランダム子育てシミュレーション。">
 <meta name="twitter:image" content="https://nakata-ataru.com/konotochi/play/ogp.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="この土地に生まれて">
+<link rel="manifest" href="manifest.webmanifest">
 <title>この土地に生まれて</title>
 <meta name="theme-color" content="#f1ede4">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
@@ -3835,19 +3839,34 @@ function albumPrompt(){
   const club=k.club&&k.club!=='帰宅部'?k.club:null;
   const quit=k.dropped==='quit';
   const S18=(S.afterHS||'').replace(/（のちに[^）]*）/g,'');const car=careerSentence(S.career||'');
-  const fr=[
-    [3,`${hoiku?'保育園の園庭':'近所の公園'}で、家族に向かって笑っている。${pet?`そばに家の${pet}。`:''}${like(2,4)}`],
-    [7,`ランドセルを背負って、小学校の門の前に立っている。${like(6,8)}`],
-    [12,`${k.chuju&&k.jhs?`${k.jhs.name}の`:'公立中学の'}入学式の日。まだ大きい制服を着て、少し緊張した顔。`],
-    [15,quit?'中学を出て働きはじめたころ。作業着姿で、照れくさそうに笑う。':club?`${club.replace(/部$/,'')}の部活の最中。${/サッカー|野球|バスケ|バレー|テニス|陸上|卓球|剣道|柔道|水泳|ソフト|ハンド|バドミントン/.test(club)?'ユニフォーム姿で、汗をかいている。':'活動に打ちこんでいる横顔。'}`:`高校の制服で、友だちと帰り道を歩いている。${like(13,16)}`],
-    [18,quit?'働いて3年目。仕事帰りの私服姿。':`高校の卒業式の日。卒業証書の筒を持っている。このあと「${S18}」。`],
-    [22,S.endAge&&S.endAge<=22||/として働き始めた|になった|している|続けている/.test(car)?`社会に出たころ。「${car}」という今の姿がわかる服装と場所で。`:'大学（大学院）で学んでいる姿。'],
-  ];
+  // その子の人生でいちばん大きかったこと（数年がかりの話・ふりかえりに出た場面・夢中だったもの）を、近い年齢のコマに優先して入れる
+  const SL=[{a:3,w:[1,4]},{a:7,w:[5,9]},{a:12,w:[10,13]},{a:15,w:[13,16]},{a:18,w:[17,18]}];
+  const cand=[];
+  const clean=t=>String(t||'').replace(/^あなたは?/,'').replace(new RegExp('^'+n+'(は|が|の)'),'').replace(/。$/,'');
+  for(const x of (k.arcsDone||[]).filter(x=>!x.cut&&x.mem))cand.push({lo:x.start,hi:x.end,score:6,t:`${x.mem.a}。${x.mem.b}が伝わる一枚。`,key:'arc:'+x.id});
+  for(const e of pickFrames(k)){if(e.cb||e.no||e.pushed||!e.say||!e.say.includes(n))continue;cand.push({lo:e.age,hi:e.age,score:4,t:`${clean(e.say)}、という場面。`,key:'f:'+e.age+e.say});}
+  for(const m of moments(k)){if(m.mem&&!m.arc)cand.push({lo:m.e.age,hi:m.e.age,score:3.5,t:`${m.mem.a}。${m.mem.b}が伝わる一枚。`,key:'m:'+m.mem.a});}
+  for(const l of (k.likes||[]))cand.push({lo:l.age,hi:l.age,score:2,t:`${l.t}に夢中になっている。`,key:'l:'+l.t});
+  if(k.dream&&k.dreamAge)cand.push({lo:k.dreamAge,hi:k.dreamAge,score:2.5,t:`「${k.dream}」になる夢を語っていたころ。`,key:'d'});
+  const used=new Set(),pick2={};
+  // 点の高い順に、重なる年齢のコマ（まだ空いているもの）へ。ちょうどよい年齢に近いほど優先
+  cand.sort((x,y)=>y.score-x.score);
+  for(const c of cand){if(used.has(c.key))continue;const ok=SL.filter(sl=>!pick2[sl.a]&&c.hi>=sl.w[0]&&c.lo<=sl.w[1]).sort((x,y)=>Math.abs((c.lo+c.hi)/2-x.a)-Math.abs((c.lo+c.hi)/2-y.a));if(ok.length){pick2[ok[0].a]=c;used.add(c.key);}}
+  const base={3:`${hoiku?'保育園の園庭':'近所の公園'}で、家族に向かって笑っている。${pet?`そばに家の${pet}。`:''}`,
+    7:'ランドセルを背負って、小学校の門の前に立っている。',
+    12:`${k.chuju&&k.jhs?`${k.jhs.name}の`:'公立中学の'}入学式の日。まだ大きい制服を着て、少し緊張した顔。`,
+    15:quit?'中学を出て働きはじめたころ。作業着姿で、照れくさそうに笑う。':club?`${club.replace(/部$/,'')}の部活の最中。${/サッカー|野球|バスケ|バレー|テニス|陸上|卓球|剣道|柔道|水泳|ソフト|ハンド|バドミントン/.test(club)?'ユニフォーム姿で、汗をかいている。':'活動に打ちこんでいる横顔。'}`:'高校の制服で、友だちと帰り道を歩いている。',
+    18:quit?'働いて3年目。仕事帰りの私服姿。':`高校の卒業式の日。卒業証書の筒を持っている。このあと「${S18}」。`};
+  const stageWord={3:'',7:'小学2年生のころ。',12:'中学1年生のころ。',15:k.age>=15&&k.hs&&!quit?'高校1年生のころ。':'15歳のころ。',18:'高校3年生のころ。'};
+  // 「あなた」は画像のAIには伝わらないので、親と書く
+  const par=isMom(f)?'母親':'父親';
+  const fr=SL.map(sl=>[sl.a,(pick2[sl.a]?`${stageWord[sl.a]}${pick2[sl.a].t}`:base[sl.a]).replace(/あなた/g,par)]);
+  fr.push([22,S.endAge&&S.endAge<=22||/として働き始めた|になった|している|続けている/.test(car)?`社会に出たころ。「${car}」という今の姿がわかる服装と場所で。`:'大学（大学院）で学んでいる姿。']);
   const yr=a=>S.year+a+(a>0&&k.birthMonth>=4?1:0);
   const P=[];
   P.push('次の人物の成長を、写真のような画像1枚にまとめてください。実在の人物ではない、架空の人物です。');
   P.push('');
-  P.push('【形式】2列×3段のコンタクトシート（フィルムのベタ焼き風）。左上から順に3歳・7歳・12歳・15歳・18歳・22歳。各コマの下に「3歳　1990年」のように年齢と西暦を小さく入れる。ほかの文字やロゴは入れない。');
+  P.push(`【形式】2列×3段のコンタクトシート（フィルムのベタ焼き風）。左上から順に3歳・7歳・12歳・15歳・18歳・22歳。各コマの下に「3歳　${yr(3)}年」のように、下の一覧の年齢と西暦を小さく入れる。ほかの文字やロゴは入れない。`);
   P.push(`【人物】${girl?'女の子（のちに女性）':'男の子（のちに男性）'}。${S.year}年${k.birthMonth}月生まれ、${placeNm(f)}育ち。日本人。6枚とも同じ一人だとわかるように、次の特徴をそろえる：${look.join('、')}。${build}。`);
   const pl=personaLabel(k);if(pl.length)P.push(`【この子らしさ】${pl.join('・')}。表情やしぐさに出す。${k.kuse?`小さいころの口ぐせは「${k.kuse}」。`:''}`);
   P.push('');
