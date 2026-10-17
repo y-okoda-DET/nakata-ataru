@@ -3741,7 +3741,7 @@ async function copyText(t,msgEl){const say=m=>{if(msgEl){msgEl.textContent=m;set
 const X_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.9 2H22l-6.8 7.8L23 22h-6.2l-4.8-6.3L6.4 22H3.3l7.3-8.3L1 2h6.3l4.4 5.8zm-1.1 18h1.7L6.3 3.9H4.5z"/></svg>';
 const SHARE_URL='https://nakata-ataru.com/konotochi/play/';
 // 投稿の本文：日本語は1文字を2として数えるので、本文は短く。URLとハッシュタグをつける
-function shareMsg(body){body=String(body||'').trim();if(body.length>100)body=body.slice(0,99)+'…';return `${body}\n${SHARE_URL}\n#この土地に生まれて`;}
+function shareMsg(body){body=String(body||'').trim();if(body.length>100)body=body.slice(0,99)+'…';return `親になって子を育てるシミュレーション「この土地に生まれて」をプレイしました。\n\n${body}\n${SHARE_URL}\n#この土地に生まれて`;}
 function xHref(body){return 'https://x.com/intent/post?text='+encodeURIComponent(shareMsg(body));}
 function clickLink(url,blank){const a=document.createElement('a');a.href=url;if(blank){a.target='_blank';a.rel='noopener noreferrer';}a.style.display='none';document.body.appendChild(a);a.click();a.remove();}
 // X：スマホはアプリを開く（アプリが無ければブラウザ）、PCは投稿画面を新しいタブで開く
