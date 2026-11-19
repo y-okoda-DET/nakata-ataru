@@ -4,6 +4,7 @@ nakata-ataru.com の静的サイト。Cloudflare Workers (static assets) で配�
 
 - /hitorigoto/ ひとりごとの周波数（紹介）、/hitorigoto/play/ ゲーム本体
 - /linguist/ ファーストコンタクト・リンギスト（紹介）
+- /hardcore-parking/ HARDCORE PARKING（紹介）、/hardcore-parking/play/ ゲーム本体
 - /wip/* 開発中タイトル
 
 - /bunpeki/play/ 文癖（ブンペキ）。ランダム対戦などのAPI（/api/buntai/*）は worker/、データベース（Cloudflare D1）の定義は db/schema.sql
